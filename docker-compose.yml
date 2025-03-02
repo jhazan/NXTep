@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Django web application
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./app:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=devsecretkey
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=nxtep_dev
+      - SQL_USER=nxtep_user
+      - SQL_PASSWORD=nxtep_password
+      - SQL_HOST=db
+      - SQL_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  # PostgreSQL database
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=nxtep_user
+      - POSTGRES_PASSWORD=nxtep_password
+      - POSTGRES_DB=nxtep_dev
+    ports:
+      - "5432:5432"
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+
+  # Celery worker for background tasks (network monitoring)
+  celery:
+    build: .
+    command: celery -A nxtep worker -l info
+    volumes:
+      - ./app:/app
+    depends_on:
+      - web
+      - redis
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=devsecretkey
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=nxtep_dev
+      - SQL_USER=nxtep_user
+      - SQL_PASSWORD=nxtep_password
+      - SQL_HOST=db
+      - SQL_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  # Celery beat for scheduled tasks (regular monitoring)
+  celery-beat:
+    build: .
+    command: celery -A nxtep beat -l info
+    volumes:
+      - ./app:/app
+    depends_on:
+      - web
+      - redis
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=devsecretkey
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=nxtep_dev
+      - SQL_USER=nxtep_user
+      - SQL_PASSWORD=nxtep_password
+      - SQL_HOST=db
+      - SQL_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+volumes:
+  postgres_data:
